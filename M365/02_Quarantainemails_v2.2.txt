@@ -1,0 +1,117 @@
+# Version 02_Quarantainemails_v2.2
+# Code in die Powershell ISE kopieren und als ps1-datei speichern
+# Abfrage des Kundennamens am Anfang
+Write-Host ""
+Write-Host "Bitte gib den Kundennamen ein:" -ForegroundColor Green
+
+$customerName = Read-Host
+$customerName = $customerName -replace "\s+", "_"  # Leerzeichen durch Unterstriche ersetzen
+Write-Host ""
+Write-Host "Kundenname:" $customerName -ForegroundColor Green -BackgroundColor Blue
+Write-Host ""
+
+# Erstellen Sie den Ausgabepfad basierend auf dem Kundennamen
+$folderPath = "C:\temp\$customerName"
+$filePath = [System.IO.Path]::Combine($folderPath, "${customerName}_quarantaenemails.htm")
+
+# Überprüfen, ob das Verzeichnis existiert, und erstellen Sie es falls nötig
+if (-not (Test-Path -Path $folderPath)) {
+    New-Item -Path $folderPath -ItemType Directory -Force
+}
+
+# Verbindung zu Exchange Online herstellen
+Write-Host "Verbindung zu Exchange Online wird hergestellt..." -ForegroundColor Yellow
+Connect-ExchangeOnline
+
+# Quarantäne-Nachrichten abrufen
+Write-Host "Quarantänemails werden abgerufen..." -ForegroundColor Yellow
+$QuarantineMessages = Get-QuarantineMessage
+
+# Erstellen Sie eine benutzerdefinierte Tabelle mit dem Expires-Datum minus 30 Tage und speichern Sie sie in der angegebenen Datei
+Write-Host "Ausgabe wird aufbereitet..." -ForegroundColor Yellow
+$quarantineData = $QuarantineMessages | ForEach-Object {
+    $expiresMinus30Days = $_.Expires.AddDays(-30).ToString("dd.MM.yyyy")
+    $expiresFormatted = $_.Expires.ToString("dd.MM.yyyy")
+    # Lange Betreffzeilen durch Zeilenumbrüche leserlicher machen
+    $formattedSubject = $_.Subject -replace '(.{100})', '$1<br />'
+    [PSCustomObject]@{
+        ExpiresMinus30Days = $expiresMinus30Days
+        RecipientAddress = $_.RecipientAddress
+        SenderAddress = $_.SenderAddress
+        Subject = $formattedSubject
+        Expires = $expiresFormatted
+    }
+}
+
+# Erstellen Sie den HTML-Inhalt
+Write-Host "Datei wird erstellt..." -ForegroundColor Yellow
+$htmlContent = @"
+<html>
+<head>
+    <title>Quarantäne-E-Mails für $customerName</title>
+    <style>
+        body { font-family: 'Trebuchet MS', Arial, sans-serif; }
+        table { border-collapse: collapse; width: 95%; table-layout: auto; margin: auto; font-size: 12px; }
+        th, td { border: 1px solid black; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        tr:nth-child(odd) { background-color: #ffffff; }
+        .important-note {
+            background-color: #d9edf7;
+            color: #31708f;
+            padding: 10px;
+            border: 1px solid #bce8f1;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .warning-note {
+            background-color: #fcf8e3;
+            color: #8a6d3b;
+            padding: 10px;
+            border: 1px solid #faebcc;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Quarantäne-E-Mails für $customerName</h1>
+    <p><strong>Erstelldatum:</strong> $(Get-Date -Format "dd.MM.yyyy HH:mm:ss")</p>
+    <div class="important-note">
+        <strong>Wichtig:</strong> Identifizieren Sie E-Mails von bekannten Absendern und mit relevanten Inhalten für Ihre Arbeit und geben Rückmeldung an Ihren Hauptansprechpartner bei Mahr EDV.
+    </div>
+    <div class="warning-note">
+        <strong>Vorsicht:</strong> Ignorieren Sie E-Mails von unbekannten Absendern oder mit verdächtigen Inhalten.
+    </div>
+    <table>
+        <tr>
+            <th>Datum</th>
+            <th>Empfängeradresse</th>
+            <th>Absenderadresse</th>
+            <th>Betreff</th>
+            <th>Verfallsdatum</th>
+        </tr>
+"@
+
+foreach ($entry in $quarantineData) {
+    $htmlContent += "<tr><td>$($entry.ExpiresMinus30Days)</td><td>$($entry.RecipientAddress)</td><td>$($entry.SenderAddress)</td><td>$($entry.Subject)</td><td>$($entry.Expires)</td></tr>`n"
+}
+
+$htmlContent += @"
+    </table>
+</body>
+</html>
+"@
+
+# HTML-Datei speichern
+$htmlContent | Out-File -FilePath $filePath -Encoding UTF8
+
+# Datei öffnen
+Start-Process $filePath
+
+# Verbindung trennen
+Disconnect-ExchangeOnline -Confirm:$false
+Write-Host ""
+Write-Host "Fertig. Die Ergebnisse wurden gespeichert unter:" -ForegroundColor Green
+Write-Host "$filePath"
+Write-Host ""
