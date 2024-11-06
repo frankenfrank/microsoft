@@ -1,3 +1,4 @@
+# Version 01_Alle Benutzer Gaeste und Funktionspostfächer_v1.6
 # Code in die Powershell ISE kopieren und als ps1-datei speichern
 # Abfrage des Kundennamens am Anfang
 Write-Host ""
