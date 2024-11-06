@@ -1,4 +1,4 @@
-# Version 02_Quarantainemails_v2.2
+# Version Quarantainemails_v2.2
 # Code in die Powershell ISE kopieren und als ps1-datei speichern
 # Abfrage des Kundennamens am Anfang
 Write-Host ""
