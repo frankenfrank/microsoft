@@ -1,0 +1,169 @@
+# Code in die Powershell ISE kopieren und als ps1-datei speichern
+# Abfrage des Kundennamens am Anfang
+Write-Host ""
+Write-Host "Bitte gib den Kundennamen ein:" -ForegroundColor Green
+$customerName = Read-Host
+$customerName = $customerName -replace "\s+", "_"  # Leerzeichen durch Unterstriche ersetzen
+Write-Host ""
+Write-Host "Kundenname" $customerName -ForegroundColor Green
+
+# Verbindung zu den Services herstellen
+Write-Host "Stelle Verbindung zu MsolService her..." -ForegroundColor Yellow
+Connect-MsolService
+Write-Host "Stelle Verbindung zu AzureAD her..." -ForegroundColor Yellow
+Connect-AzureAD
+Write-Host "Stelle Verbindung zu ExchangeOnline her..." -ForegroundColor Yellow
+Connect-ExchangeOnline -UserPrincipalName $userEmail
+
+# Pfad für den Output definieren
+$folderPath = "C:\temp\$customerName"
+if (-Not (Test-Path -Path $folderPath)) {
+    New-Item -ItemType Directory -Path $folderPath
+}
+
+$filePath = [System.IO.Path]::Combine($folderPath, "${customerName}_benutzerinfo.htm")
+
+# Lizenzinformationen sammeln
+Write-Host "Abfrage der Lizenzinformationen..." -ForegroundColor Yellow
+$licenses = Get-MsolAccountSku
+$licenseUsage = @()
+
+# Lizenzinformationen ohne benutzerfreundliche Namen sammeln
+foreach ($license in $licenses) {
+    $licenseInfo = New-Object PSObject -Property @{
+        SkuPartNumber = $license.AccountSkuId
+        UsedLicenses = $license.ConsumedUnits
+        TotalLicenses = $license.ActiveUnits
+    }
+    $licenseUsage += $licenseInfo
+}
+
+$sortedLicenseUsage = $licenseUsage | Sort-Object -Property SkuPartNumber
+
+# Benutzerinformationen sammeln, unabhängig vom Aktivierungsstatus
+Write-Host "Abfrage aller Benutzer..." -ForegroundColor Yellow
+$allUsers = Get-AzureADUser -All $true
+
+# Lizenzinformationen der Benutzer sammeln
+$licensesInfo = @{}
+foreach ($user in $allUsers) {
+    $licenses = (Get-MsolUser -UserPrincipalName $user.UserPrincipalName).Licenses | ForEach-Object {
+        $_.AccountSkuId
+    }
+    $licensesInfo[$user.UserPrincipalName] = $licenses -join "<br>"
+}
+
+# HTML-Header mit Datum
+$currentDateTime = (Get-Date).ToString("dd.MM.yyyy HH:mm 'Uhr'")
+
+$htmlContent = @"
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benutzer- und Lizenzübersicht - $customerName</title>
+    <style>
+        body { font-family: 'Trebuchet MS', sans-serif; text-align: center; }
+        table { margin: auto; width: 90%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
+        th, td { border: 1px solid black; padding: 8px; text-align: left; word-wrap: break-word; }
+        th { background-color: #f2f2f2; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        tr:nth-child(odd) { background-color: #ffffff; }
+        #searchInput { margin-bottom: 12px; padding: 8px; width: 300px; }
+        #resultCount { margin-left: 10px; }
+    </style>
+    <script>
+        function toggleLicenseTable() {
+            var x = document.getElementById('licenseTable');
+            if (x.style.display === 'none') {
+                x.style.display = 'table';
+            } else {
+                x.style.display = 'none';
+            }
+        }
+
+        function searchTable() {
+            var input, filter, table, tr, td, i, j, txtValue, resultCount = 0;
+            input = document.getElementById('searchInput');
+            filter = input.value.toLowerCase();
+            table = document.getElementById('userTable');
+            tr = table.getElementsByTagName('tr');
+            for (i = 1; i < tr.length; i++) {
+                tr[i].style.display = 'none';
+                td = tr[i].getElementsByTagName('td');
+                for (j = 0; j < td.length; j++) {
+                    if (td[j]) {
+                        txtValue = td[j].textContent || td[j].innerText;
+                        if (txtValue.toLowerCase().indexOf(filter) > -1) {
+                            tr[i].style.display = '';
+                            resultCount++;
+                            break;
+                        }
+                    }
+                }
+            }
+            document.getElementById('resultCount').innerText = resultCount + ' Ergebnisse gefunden';
+        }
+    </script>
+</head>
+<body>
+    <h1>Lizenz- und Benutzer&uuml;bersicht für $customerName</h1>
+    <p>Erstellt am: $currentDateTime</p>
+
+    <!-- Lizenzinformationen-Tabelle -->
+    <button onclick="toggleLicenseTable()">Lizenzinformationen ein-/ausklappen</button>
+    <table id="licenseTable" style="display: none;">
+        <tr>
+            <th>Lizenzname</th>
+            <th>Verwendete Lizenzen</th>
+            <th>Gesamtlizenzen</th>
+        </tr>
+"@
+
+# Tabelle mit Lizenzinformationen füllen
+foreach ($license in $sortedLicenseUsage) {
+    $htmlContent += "<tr><td>$($license.SkuPartNumber)</td><td>$($license.UsedLicenses)</td><td>$($license.TotalLicenses)</td></tr>"
+}
+
+$htmlContent += @"
+    </table>
+
+    <!-- Benutzerübersicht-Tabelle -->
+    <h2>Benutzerübersicht</h2>
+    <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Suche nach Benutzern..." />
+    <span id="resultCount">0 Ergebnisse gefunden</span>
+    <table id="userTable">
+        <tr>
+            <th>Anzeigename</th>
+            <th>E-Mail-Adresse</th>
+            <th>Status</th>
+            <th>Lizenzen</th>
+        </tr>
+"@
+
+# Tabelle mit Benutzerinformationen füllen
+foreach ($user in $allUsers) {
+    $status = if ($user.AccountEnabled) { "Aktiv" } else { "Blockiert" }
+    $htmlContent += "<tr><td>$($user.DisplayName)</td><td>$($user.Mail)</td><td>$status</td><td>$($licensesInfo[$user.UserPrincipalName])</td></tr>"
+}
+
+foreach ($mailbox in $sharedMailboxes) {
+    $htmlContent += "<tr><td>$($mailbox.DisplayName)</td><td>$($mailbox.PrimarySmtpAddress)</td><td>Funktionspostfach</td><td>Nicht zutreffend</td></tr>"
+}
+
+$htmlContent += @"
+    </table>
+</body>
+</html>
+"@
+
+# HTML-Datei speichern und öffnen
+$htmlContent | Out-File -FilePath $filePath -Encoding UTF8
+Start-Process $filePath
+
+# Verbindungen trennen
+Disconnect-ExchangeOnline -Confirm:$false
+
+Write-Host "Fertig. Die Ergebnisse finden Sie in der Datei:" -ForegroundColor Green
+Write-Host $filePath -ForegroundColor Green
