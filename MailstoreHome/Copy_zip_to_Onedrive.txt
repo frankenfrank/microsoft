@@ -1,7 +1,7 @@
-
 # Benutzerprofilpfad dynamisch
 $userProfile = $env:USERPROFILE
 $destinationFolder = "$userProfile\OneDrive\MailStoreHome"
+$logFile = "$destinationFolder\BackupLog.txt"
 
 # Verzeichnis und Datei für das Zip-Archiv
 $sourceFolder = "C:\MailstoreHome"
@@ -12,19 +12,46 @@ if (-Not (Test-Path -Path $destinationFolder)) {
     New-Item -ItemType Directory -Path $destinationFolder | Out-Null
 }
 
-# Zip-Archiv erstellen
+# Log-Datei starten
+if (-Not (Test-Path -Path $logFile)) {
+    New-Item -Path $logFile -ItemType File | Out-Null
+}
+
+# Log-Datei-Einträge auf maximal 1000 begrenzen
+if (Test-Path -Path $logFile) {
+    $logEntries = Get-Content -Path $logFile
+    if ($logEntries.Count -gt 1000) {
+        $logEntries = $logEntries[-1000..-1]
+        $logEntries | Set-Content -Path $logFile
+    }
+}
+
+# Fortschritt anzeigen während des Archivierens
 Add-Type -AssemblyName System.IO.Compression.FileSystem
+Write-Host "Archivierung gestartet: $zipFile" -ForegroundColor Cyan
+Add-Content -Path $logFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Archivierung gestartet: $zipFile"
+
 [System.IO.Compression.ZipFile]::CreateFromDirectory($sourceFolder, $zipFile)
 
 Write-Host "Die Datei '$zipFile' wurde gepackt." -ForegroundColor Green
+Add-Content -Path $logFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Archivierung abgeschlossen: $zipFile"
 
 # Alte Dateien löschen, die älter als 14 Tage sind
 $days = 14
-Get-ChildItem -Path $destinationFolder -Filter "*.zip" |
-    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$days) } |
-    ForEach-Object {
-        Write-Host "Lösche Datei: $($_.FullName)" -ForegroundColor Yellow
-        Remove-Item -Path $_.FullName -Force
-    }
+$oldFiles = Get-ChildItem -Path $destinationFolder -Filter "*.zip" |
+    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$days) }
 
-Write-Host "Alte Zip-Dateien wurden aus '$destinationFolder' entfernt." -ForegroundColor Green
+foreach ($oldFile in $oldFiles) {
+    Write-Host "Lösche Datei: $($oldFile.FullName)" -ForegroundColor Yellow
+    Add-Content -Path $logFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Datei gelöscht: $($oldFile.FullName)"
+    Remove-Item -Path $oldFile.FullName -Force
+}
+
+# Log-Datei-Einträge erneut auf 1000 begrenzen
+$logEntries = Get-Content -Path $logFile
+if ($logEntries.Count -gt 1000) {
+    $logEntries = $logEntries[-1000..-1]
+    $logEntries | Set-Content -Path $logFile
+}
+
+Write-Host "Alte Log-Einträge wurden auf 1000 begrenzt." -ForegroundColor Cyan
