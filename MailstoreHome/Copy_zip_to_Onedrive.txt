@@ -1,3 +1,4 @@
+# https://github.com/frankenfrank
 # Benutzerprofilpfad dynamisch
 $userProfile = $env:USERPROFILE
 $destinationFolder = "$userProfile\OneDrive\MailStoreHome"
