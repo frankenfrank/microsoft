@@ -1,1 +1,30 @@
 
+# Benutzerprofilpfad dynamisch
+$userProfile = $env:USERPROFILE
+$destinationFolder = "$userProfile\OneDrive\MailStoreHome"
+
+# Verzeichnis und Datei für das Zip-Archiv
+$sourceFolder = "C:\MailstoreHome"
+$zipFile = "$destinationFolder\$(Get-Date -Format 'yyyyMMdd-HHmm')_MailstoreHome.zip"
+
+# Zielordner prüfen und ggf. erstellen
+if (-Not (Test-Path -Path $destinationFolder)) {
+    New-Item -ItemType Directory -Path $destinationFolder | Out-Null
+}
+
+# Zip-Archiv erstellen
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::CreateFromDirectory($sourceFolder, $zipFile)
+
+Write-Host "Die Datei '$zipFile' wurde gepackt." -ForegroundColor Green
+
+# Alte Dateien löschen, die älter als 14 Tage sind
+$days = 14
+Get-ChildItem -Path $destinationFolder -Filter "*.zip" |
+    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$days) } |
+    ForEach-Object {
+        Write-Host "Lösche Datei: $($_.FullName)" -ForegroundColor Yellow
+        Remove-Item -Path $_.FullName -Force
+    }
+
+Write-Host "Alte Zip-Dateien wurden aus '$destinationFolder' entfernt." -ForegroundColor Green
