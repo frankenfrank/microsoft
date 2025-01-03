@@ -1,9 +1,11 @@
+# ----------------------------------------------------------------
 # Version: Unternehmensanwendungen_v1.0
 # github.com/frankenfrank
 # Code in die Powershell ISE kopieren und als ps1-datei speichern
 
-# Vorrausetzungen:
+# Voraussetzungen:
 # Install-Module Microsoft.Graph -Scope CurrentUser
+# ----------------------------------------------------------------
 
 # Abfrage des Kundennamens am Anfang
 Write-Host ""
