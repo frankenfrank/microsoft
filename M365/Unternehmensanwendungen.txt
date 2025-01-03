@@ -1,0 +1,205 @@
+# Version Quarantainemails_v2.2
+# Code in die Powershell ISE kopieren und als ps1-datei speichern
+# Abfrage des Kundennamens am Anfang
+Write-Host ""
+Write-Host "Bitte gib den Kundennamen ein:" -ForegroundColor Yellow
+$Kundenname = Read-Host
+$Kundenname = $Kundenname -replace "\s+", "_"  # Leerzeichen durch Unterstriche ersetzen
+Write-Host ""
+Write-Host "Kundenname (bereinigt): "$Kundenname -ForegroundColor Green
+Write-Host ""
+
+# Ausgabe-Datei und Speicherort
+$OutputDir = "C:\temp\$Kundenname"
+$OutputFile = "$OutputDir\$Kundenname-UnternehmensApps.htm"
+
+# Erstellen des Ausgabeordners, falls nicht vorhanden
+if (-not (Test-Path $OutputDir)) {
+    New-Item -ItemType Directory -Path $OutputDir
+}
+
+# Anmeldung bei Microsoft Graph mit GUI (für richtigen Tenant auswählen)
+Connect-MgGraph -Scopes "Directory.Read.All" -NoWelcome
+
+
+Write-Host ""
+Write-Host "Die Daten werden aufbereitet, das dauert einen Moment..."  -ForegroundColor Yellow
+Write-Host "Die Auswertung wird automatisch im Standardbrowser geoeffnet."  -ForegroundColor Yellow
+Write-Host ""  -ForegroundColor Yellow
+
+# Alle Enterprise-Anwendungen abrufen und alphabetisch sortieren
+#$applications = Get-MgServicePrincipal -All | Sort-Object DisplayName
+
+# HTML-Ausgabe erstellen
+$ErstellDatum = (Get-Date).ToString("dd.MM.yyyy HH:mm:ss")
+$HTMLContent = @"
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Trebuchet MS; font-size: 12px; margin-left: 30px;}
+        h1 { text-align: center; }
+        p { text-align: left; }
+
+
+        /* Infobox angepasst: schmaler und linksbündig */
+        .infobox { 
+            background-color: #e6f7ff; 
+            border: 1px solid #b3d7ff; 
+            padding: 10px; 
+            margin: 10px 0; 
+            width: 80%;  /* Breite auf 80% gesetzt */
+            margin-left: 5px;
+            margin-right: auto;
+            text-align: left;
+        }
+
+        /* Tabelle zentriert und maximal 95% Breite */
+        table { 
+            width: 95%; 
+            max-width: 95%; 
+            margin: 20px auto; 
+            border-collapse: collapse; 
+        }
+
+        th, td { 
+            border: 1px solid black; 
+            padding: 8px; 
+            text-align: left; 
+        }
+
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        tr:nth-child(odd) { background-color: #ffffff; }
+
+        th { 
+            background-color: #777777; 
+            color: white; 
+			font-size: 14px;
+        }
+
+        /* Schiebeschalter */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .switch input { 
+            opacity: 0; 
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            border-radius: 50%;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+        }
+
+        input:checked + .slider {
+            background-color: #4CAF50;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        /* Filter-Status */
+        .filter-status {
+            font-weight: bold; 
+            color: #333;
+        }
+    </style>
+    <script>
+        var filterActive = false;
+        
+        function toggleFilter() {
+            var rows = document.querySelectorAll("tr.app-row");
+            rows.forEach(function(row) {
+                var userCell = row.querySelector(".user-cell").innerText;
+                if (filterActive) {
+                    row.style.display = ""; // Zeilen einblenden
+                } else {
+                    if (userCell === "Keine Benutzer gefunden") {
+                        row.style.display = "none"; // Zeilen ohne Benutzer ausblenden
+                    }
+                }
+            });
+            filterActive = !filterActive;
+            document.getElementById("filter-status").innerText = filterActive ? "Aktiv (nur Anwendungen mit Benutzerzuweisung werden angezeigt)" : "Inaktiv (alle Anwendungen werden angezeigt)";
+        }
+    </script>
+</head>
+<body>
+    <h1>Unternehmensanwendungen - $Kundenname</h1>
+    <div class="infobox">
+        <strong>Erklärung:</strong> Diese Liste zeigt alle Programme und Dienste, die in Ihrem Unternehmen genutzt werden und bei Microsoft registriert sind. Zu jeder Anwendung sehen Sie den Namen, eine eindeutige ID und die Benutzer, die darauf Zugriff haben.<br><br>
+        <strong>Risiken:</strong> Unnötig aktive Anwendungen erhöhen das Risiko von Datenlecks, unbefugtem Zugriff und Sicherheitslücken. Regelmäßige Kontrolle hilft, diese Risiken zu minimieren und die IT-Sicherheit zu verbessern.
+    </div>
+    <p>Erstellt am: $ErstellDatum</p>
+    
+    <!-- Schiebeschalter für Filter -->
+    <label class="switch">
+        <input type="checkbox" onchange="toggleFilter()">
+        <span class="slider"></span>
+    </label>
+    <span class="filter-status" id="filter-status">&nbsp;</span>
+    
+    <table>
+        <tr>
+            <th>Anwendungsname</th>
+            <th>Anwendungs-ID</th>
+            <th>Zugewiesene Benutzer</th>
+        </tr>
+"@
+
+# Ergebnisse sammeln
+foreach ($app in $applications) {
+    $appName = $app.DisplayName
+    $appId = $app.Id
+
+    # Benutzerzuweisungen abrufen
+    $assignments = Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($app.Id)/appRoleAssignedTo"
+
+    if ($assignments.value.Count -gt 0) {
+        $userList = ($assignments.value | ForEach-Object { "$($_.principalDisplayName) ($($_.principalId))" }) -join "<br>"
+    } else {
+        $userList = "Keine Benutzer gefunden"
+    }
+
+    # HTML-Zeile hinzufügen
+    $HTMLContent += "<tr class='app-row'><td>$appName</td><td>$appId</td><td class='user-cell'>$userList</td></tr>"
+}
+
+$HTMLContent += @"
+    </table>
+</body>
+</html>
+"@
+
+# Speichern der HTML-Datei
+$HTMLContent | Out-File -Encoding utf8 -FilePath $OutputFile
+
+# Datei öffnen
+Start-Process $OutputFile
+
+Write-Host "Die Datei wurde erfolgreich erstellt und geöffnet: $OutputFile"
