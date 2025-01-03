@@ -3,7 +3,7 @@
 # github.com/frankenfrank
 # Code in die Powershell ISE kopieren und als ps1-datei speichern
 
-# Vorrausetzungen:
+# Voraussetzungen:
 # Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser
 # Install-Module Microsoft.Graph -Scope CurrentUser
 # ----------------------------------------------------------------
