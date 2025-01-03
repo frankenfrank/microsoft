@@ -1,5 +1,14 @@
-# Version 01_Alle Benutzer Gaeste und Funktionspostfächer_v1.6
+# ----------------------------------------------------------------
+# Version Alle Benutzer Gaeste und Funktionspostfächer_v1.7
+# github.com/frankenfrank
 # Code in die Powershell ISE kopieren und als ps1-datei speichern
+
+# Vorrausetzungen:
+# Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser
+# Install-Module Microsoft.Graph -Scope CurrentUser
+# Install-Module -Name MSOnline -Scope CurrentUser
+# ----------------------------------------------------------------
+
 # Abfrage des Kundennamens am Anfang
 Write-Host ""
 Write-Host "Bitte gib den Kundennamen ein:" -ForegroundColor Green
@@ -139,6 +148,7 @@ $htmlContent += @"
             <th>Anzeigename</th>
             <th>E-Mail-Adresse</th>
             <th>Status</th>
+            <th>Typ</th>
             <th>Lizenzen</th>
         </tr>
 "@
@@ -146,12 +156,17 @@ $htmlContent += @"
 # Tabelle mit Benutzerinformationen füllen
 foreach ($user in $allUsers) {
     $status = if ($user.AccountEnabled) { "Aktiv" } else { "Blockiert" }
-    $htmlContent += "<tr><td>$($user.DisplayName)</td><td>$($user.Mail)</td><td>$status</td><td>$($licensesInfo[$user.UserPrincipalName])</td></tr>"
+    $type = if ($user.UserType -eq "Guest") { 
+        "Gast" 
+    } elseif ((Get-MsolUser -UserPrincipalName $user.UserPrincipalName).IsLicensed -eq $false -and $user.MailNickName -notlike "Room*") { 
+        "Freigegebenes Postfach" 
+    } else { 
+        "Benutzer" 
+    }
+    $htmlContent += "<tr><td>$($user.DisplayName)</td><td>$($user.Mail)</td><td>$status</td><td>$type</td><td>$($licensesInfo[$user.UserPrincipalName])</td></tr>"
 }
 
-foreach ($mailbox in $sharedMailboxes) {
-    $htmlContent += "<tr><td>$($mailbox.DisplayName)</td><td>$($mailbox.PrimarySmtpAddress)</td><td>Funktionspostfach</td><td>Nicht zutreffend</td></tr>"
-}
+
 
 $htmlContent += @"
     </table>
