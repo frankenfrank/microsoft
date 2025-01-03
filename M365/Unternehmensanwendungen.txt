@@ -1,5 +1,10 @@
-# Version Quarantainemails_v2.2
+# Version: Unternehmensanwendungen_v1.0
+# github.com/frankenfrank
 # Code in die Powershell ISE kopieren und als ps1-datei speichern
+
+# Vorrausetzungen:
+# Install-Module Microsoft.Graph -Scope CurrentUser
+
 # Abfrage des Kundennamens am Anfang
 Write-Host ""
 Write-Host "Bitte gib den Kundennamen ein:" -ForegroundColor Yellow
