@@ -1,11 +1,19 @@
 # ----------------------------------------------------------------
-# Version: Unternehmensanwendungen_v1.0
+# Version: Unternehmensanwendungen_v1.1
 # github.com/frankenfrank
-# Code in die Powershell ISE kopieren und als ps1-datei speichern
+# Code in die Powershell ISE kopieren und als ps1-Datei speichern
 
 # Voraussetzungen:
-# Install-Module Microsoft.Graph -Scope CurrentUser
+# Install-Module -Name Microsoft.Graph -Scope CurrentUser -Force
 # ----------------------------------------------------------------
+
+clear
+
+# Offene Verbindungen von benötigten Diensten trennen
+Disconnect-AzureAD -ErrorAction SilentlyContinue
+Disconnect-MgGraph -ErrorAction SilentlyContinue
+
+
 
 # Abfrage des Kundennamens am Anfang
 Write-Host ""
@@ -26,16 +34,42 @@ if (-not (Test-Path $OutputDir)) {
 }
 
 # Anmeldung bei Microsoft Graph mit GUI (für richtigen Tenant auswählen)
-Connect-MgGraph -Scopes "Directory.Read.All" -NoWelcome
+# M365-Anwendungen abfragen (Administratorrechte erforderlich)
+Write-Host "Verbinden mit den Diensten (auf offene Fenster achten)" -ForegroundColor Yellow
+Connect-AzureAD
+Connect-MgGraph -Scopes "Application.Read.All", "Directory.Read.All" -NoWelcome
 
-
-Write-Host ""
+# Meldung anzeigen, weil es eine Weile dauert
 Write-Host "Die Daten werden aufbereitet, das dauert einen Moment..."  -ForegroundColor Yellow
 Write-Host "Die Auswertung wird automatisch im Standardbrowser geoeffnet."  -ForegroundColor Yellow
 Write-Host ""  -ForegroundColor Yellow
 
-# Alle Enterprise-Anwendungen abrufen und alphabetisch sortieren
-#$applications = Get-MgServicePrincipal -All | Sort-Object DisplayName
+# Alle Service Principals abrufen
+$ServicePrincipals = Get-MgServicePrincipal -All | Select-Object Id, DisplayName
+
+# Liste für das Ergebnis initialisieren
+$ResultList = @()
+
+# Für jeden Service Principal die zugewiesenen Benutzer abfragen
+foreach ($sp in $ServicePrincipals) {
+    $AppRoleAssignments = Get-MgServicePrincipalAppRoleAssignedTo -ServicePrincipalId $sp.Id
+    
+    if ($AppRoleAssignments.Count -eq 0) {
+        # Keine Benutzer zugewiesen
+        $ResultList += [PSCustomObject]@{
+            Application        = $sp.DisplayName
+            AssignedPrincipals = "Keine Benutzer gefunden"
+        }
+    }
+    else {
+        # Benutzer vorhanden, Details hinzufügen
+        $userList = ($AppRoleAssignments | ForEach-Object { $_.PrincipalDisplayName }) -join "<br />"
+        $ResultList += [PSCustomObject]@{
+            Application        = $sp.DisplayName
+            AssignedPrincipals = $userList
+        }
+    }
+}
 
 # HTML-Ausgabe erstellen
 $ErstellDatum = (Get-Date).ToString("dd.MM.yyyy HH:mm:ss")
@@ -169,32 +203,22 @@ $HTMLContent = @"
         <input type="checkbox" onchange="toggleFilter()">
         <span class="slider"></span>
     </label>
-    <span class="filter-status" id="filter-status">&nbsp;</span>
+    <br/><span class="filter-status" id="filter-status">&nbsp;</span>
     
     <table>
         <tr>
             <th>Anwendungsname</th>
-            <th>Anwendungs-ID</th>
             <th>Zugewiesene Benutzer</th>
         </tr>
 "@
 
-# Ergebnisse sammeln
-foreach ($app in $applications) {
-    $appName = $app.DisplayName
-    $appId = $app.Id
-
-    # Benutzerzuweisungen abrufen
-    $assignments = Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$($app.Id)/appRoleAssignedTo"
-
-    if ($assignments.value.Count -gt 0) {
-        $userList = ($assignments.value | ForEach-Object { "$($_.principalDisplayName) ($($_.principalId))" }) -join "<br>"
-    } else {
-        $userList = "Keine Benutzer gefunden"
-    }
+# HTML-Erstellung vorbereiten
+foreach ($result in $ResultList) {
+    $appName = $result.Application
+    $userList = $result.AssignedPrincipals
 
     # HTML-Zeile hinzufügen
-    $HTMLContent += "<tr class='app-row'><td>$appName</td><td>$appId</td><td class='user-cell'>$userList</td></tr>"
+    $HTMLContent += "<tr class='app-row'><td>$appName</td><td class='user-cell'>$userList</td></tr>"
 }
 
 $HTMLContent += @"
@@ -208,5 +232,9 @@ $HTMLContent | Out-File -Encoding utf8 -FilePath $OutputFile
 
 # Datei öffnen
 Start-Process $OutputFile
+
+#Abmelden von den Diensten
+Disconnect-AzureAD -ErrorAction SilentlyContinue
+Disconnect-MgGraph -ErrorAction SilentlyContinue
 
 Write-Host "Die Datei wurde erfolgreich erstellt und geöffnet: $OutputFile"
