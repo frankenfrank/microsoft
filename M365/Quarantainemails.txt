@@ -1,9 +1,9 @@
 # ----------------------------------------------------------------
-# Version Quarantainemails_v2.2
+# Version Quarantainemails_v2.3
 # github.com/frankenfrank
 # Code in die Powershell ISE kopieren und als ps1-datei speichern
 
-# Voraussetzungen:
+# Vorrausetzungen:
 # Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser
 # Install-Module Microsoft.Graph -Scope CurrentUser
 # ----------------------------------------------------------------
@@ -27,12 +27,15 @@ if (-not (Test-Path -Path $folderPath)) {
     New-Item -Path $folderPath -ItemType Directory -Force
 }
 
+# (Andere) Offene Verbindungen trennen
+Disconnect-ExchangeOnline -Confirm:$false
+
 # Verbindung zu Exchange Online herstellen
 Write-Host "Verbindung zu Exchange Online wird hergestellt..." -ForegroundColor Yellow
 Connect-ExchangeOnline
 
 # Quarantäne-Nachrichten abrufen
-Write-Host "Quarantänemails werden abgerufen..." -ForegroundColor Yellow
+Write-Host "Quarantänemails werden abgerufen, das kann ein paar Minuten dauern..."  -ForegroundColor Yellow
 $QuarantineMessages = Get-QuarantineMessage
 
 # Erstellen Sie eine benutzerdefinierte Tabelle mit dem Expires-Datum minus 30 Tage und speichern Sie sie in der angegebenen Datei
@@ -80,6 +83,17 @@ $htmlContent = @"
             border-radius: 4px;
             margin: 20px 0;
         }
+        .info-note {
+        width: 600px;
+    background-color: #e7f3fe;
+    color: #31708f;
+    padding: 10px;
+    border: 1px solid #bce8f1;
+    border-radius: 4px;
+    margin: 20px 0;
+     font-size: 0.7em; /* Kleinere Schriftgröße */
+}
+
     </style>
 </head>
 <body>
@@ -91,6 +105,13 @@ $htmlContent = @"
     <div class="warning-note">
         <strong>Vorsicht:</strong> Ignorieren Sie E-Mails von unbekannten Absendern oder mit verdächtigen Inhalten.
     </div>
+    <div class="info-note">E-Mails landen in der Quarant&auml;ne, wenn Exchange Online sie als unsicher einstuft. Das kann passieren, weil:<br />
+        <ul><li>Sch&auml;dliche Inhalte wie Viren oder verd&auml;chtige Links erkannt werden.</li>
+        <li>Spam-Verdacht besteht, oft durch unbekannte Absender.</li>
+        <li>Pr&uuml;fungen für sichere Absender scheitern (z. B. wegen falscher Absender-Einstellungen).</li></ul>
+        Die E-Mail wird dann blockiert, um Schutz zu gew&auml;hrleisten.
+    </div>
+
     <table>
         <tr>
             <th>Datum</th>
@@ -107,6 +128,7 @@ foreach ($entry in $quarantineData) {
 
 $htmlContent += @"
     </table>
+
 </body>
 </html>
 "@
