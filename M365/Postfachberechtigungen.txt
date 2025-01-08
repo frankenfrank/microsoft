@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------
-# Version: Postfachberechtigung_v1.0
+# Version: Postfachberechtigung_v1.1
 # github.com/frankenfrank
 # Code in die Powershell ISE kopieren und als ps1-Datei speichern
 #
