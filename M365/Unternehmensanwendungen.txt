@@ -38,7 +38,7 @@ Connect-AzureAD
 Connect-MgGraph -Scopes "Application.Read.All", "Directory.Read.All" -NoWelcome
 
 # Meldung anzeigen, weil es eine Weile dauert
-Write-Host "Die Daten werden aufbereitet, das dauert einen Moment..."  -ForegroundColor Yellow
+Write-Host "Die Daten werden aufbereitet, das kann ein paar Minuten dauern..."  -ForegroundColor Yellow
 Write-Host "Die Auswertung wird automatisch im Standardbrowser geoeffnet."  -ForegroundColor Yellow
 Write-Host ""  -ForegroundColor Yellow
 
