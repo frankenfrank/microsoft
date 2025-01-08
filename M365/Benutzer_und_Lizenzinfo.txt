@@ -17,6 +17,11 @@ $customerName = $customerName -replace "\s+", "_"  # Leerzeichen durch Unterstri
 Write-Host ""
 Write-Host "Kundenname" $customerName -ForegroundColor Green
 
+# (Offene) Verbindungen trennen
+Disconnect-MsolService
+Disconnect-AzureAD -ErrorAction SilentlyContinue
+Disconnect-ExchangeOnline -Confirm:$false
+
 # Verbindung zu den Services herstellen
 Write-Host "Stelle Verbindung zu MsolService her..." -ForegroundColor Yellow
 Connect-MsolService
@@ -179,7 +184,10 @@ $htmlContent | Out-File -FilePath $filePath -Encoding UTF8
 Start-Process $filePath
 
 # Verbindungen trennen
+Disconnect-MsolService
+Disconnect-AzureAD -ErrorAction SilentlyContinue
 Disconnect-ExchangeOnline -Confirm:$false
+
 
 Write-Host "Fertig. Die Ergebnisse finden Sie in der Datei:" -ForegroundColor Green
 Write-Host $filePath -ForegroundColor Green
