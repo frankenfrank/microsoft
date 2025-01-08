@@ -42,11 +42,12 @@ Write-Host "Die Daten werden aufbereitet, das kann ein paar Minuten dauern..."  
 Write-Host "Die Auswertung wird automatisch im Standardbrowser geoeffnet."  -ForegroundColor Yellow
 Write-Host ""  -ForegroundColor Yellow
 
-# Alle Service Principals abrufen und nur Enterprise Applications mit Benutzerzuweisungen berücksichtigen
+# Alle Service Principals abrufen und sortieren nach DisplayName
 $ServicePrincipals = Get-MgServicePrincipal -All | Where-Object {
     $_.ServicePrincipalType -eq "Application" -and
     (Get-MgServicePrincipalAppRoleAssignedTo -ServicePrincipalId $_.Id).Count -gt 0
-} | Select-Object Id, DisplayName
+} | Sort-Object DisplayName | Select-Object Id, DisplayName
+
 
 # Liste für das Ergebnis initialisieren
 $ResultList = @()
@@ -180,7 +181,7 @@ $HTMLContent = @"
         <strong>Risiken:</strong> Unnötig aktive Anwendungen erhöhen das Risiko von Datenlecks, unbefugtem Zugriff und Sicherheitslücken. Drittanbieter-Apps sollten sorgfältig geprüft werden. Durch regelmäßige Kontrolle und das Entfernen unnötiger Apps lässt sich das Risiko deutlich verringern.<br><br>
         <strong>Beispiel:</strong> Wenn es zu einem Angriff auf die Infrastruktur einer Enterprise application kommt und die App kompromittiert wird, könnte ein Angreifer theoretisch auf die geschäftlichen Daten des Unternehmens zugreifen. Das liegt daran, dass die Enterprise application dieser App im Unternehmen registriert ist und somit als vertrauenswürdig gilt, wodurch sie Zugriff auf sensible Unternehmensdaten wie E-Mails, Dokumente oder andere Ressourcen hat.<br><br>
 		<details>
-    <summary>Mögliche Maßnahmen:</summary>
+    <summary>Für mögliche Maßnahmen aufklappen</summary>
     <p>Möglichkeiten zur Registrierung einer Enterprise Application<p>
 	<p>Für den M365 Tenant bestehen folgende Möglichkeiten, für Benutzer eine Enterprise Application zu registrieren:</p>
     
