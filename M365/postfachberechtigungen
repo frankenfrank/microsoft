@@ -1,0 +1,107 @@
+# ----------------------------------------------------------------
+# Version: Postfachberechtigung_v1.0
+# github.com/frankenfrank
+# Code in die Powershell ISE kopieren und als ps1-Datei speichern
+#
+# Voraussetzungen:
+# #Import-Module ExchangeOnlineManagement 
+# ----------------------------------------------------------------
+
+# (Andere) Offene Verbindungen trennen
+Disconnect-ExchangeOnline -Confirm:$false
+
+# Verbindung zu Exchange Online herstellen
+Connect-ExchangeOnline
+
+# Ergebnisliste initialisieren
+$MailboxReport = @()
+
+# Alle Postfächer abrufen und Berechtigungen prüfen
+Get-Mailbox -ResultSize Unlimited | Where-Object {
+    $_.DisplayName -notlike "DiscoverySearchMailbox*"
+} | ForEach-Object {
+    $Mailbox = $_
+
+    # Vollzugriffsberechtigungen abrufen
+    $FullAccessPermissions = Get-MailboxPermission -Identity $Mailbox.Identity | Where-Object {
+        $_.AccessRights -contains "FullAccess" -and $_.IsInherited -eq $false -and $_.User -notmatch "NT AUTHORITY\\SELF"
+    } | Select-Object -ExpandProperty User -ErrorAction SilentlyContinue
+
+    # Senden-als-Berechtigungen abrufen
+    $SendAsPermissions = Get-RecipientPermission -Identity $Mailbox.Identity | Where-Object {
+        $_.AccessRights -contains "SendAs" -and $_.Trustee -notmatch "NT AUTHORITY\\SELF"
+    } | Select-Object -ExpandProperty Trustee -ErrorAction SilentlyContinue
+
+    # Typ des Postfachs bestimmen
+    $MailboxType = if ($Mailbox.RecipientTypeDetails -eq "SharedMailbox") { "Freigegebenes Postfach" } else { "Benutzerpostfach" }
+
+    # Ergebnis hinzufügen
+    $MailboxReport += [PSCustomObject]@{
+        EMailAdresse   = $Mailbox.PrimarySmtpAddress
+        Anzeigename    = $Mailbox.DisplayName
+        Postfachtyp    = $MailboxType
+    Vollzugriff    = ($FullAccessPermissions | ForEach-Object { $_ }) -join "<br>"
+    SendenAls      = ($SendAsPermissions | ForEach-Object { $_ }) -join "<br>"
+    }
+}
+
+# Ergebnis in eine HTML-Datei exportieren
+$ReportPath = "C:\Temp\MailboxPermissionsReport.htm"
+$PreContent = @"
+<h1>Mailbox-Berechtigung</h1>
+<p>Erstelldatum: $(Get-Date -Format "dd.MM.yyyy HH:mm:ss")</p>
+<div class="info-note">
+<strong>Hinweis:</strong>
+<p><strong>UserMailbox:</strong> Ein persönliches Postfach für einen Benutzer mit einer individuellen Lizenz. Der Benutzer hat Zugriff auf E-Mails, Kalender und Kontakte.</p>
+<p><strong>SharedMailbox:</strong> Ein Postfach, das von mehreren Benutzern gemeinsam genutzt wird, ohne eine eigene Lizenz zu benötigen.</p>
+<table>
+<tr><th>Postfachtyp</th><th>Vorteile</th><th>Nachteile</th></tr>
+<tr><td>Benutzerpostfach</td><td>Vollständige Kontrolle, individuell anpassbar</td><td>Lizenzkosten pro Postfach</td></tr>
+<tr><td>Freigegebenes Postfach</td><td>Kostenlos, Zusammenarbeit möglich</td><td>Keine persönliche Nutzung</td></tr>
+</table>
+</div>
+<style>
+    body { font-family: Trebuchet MS; font-size: 0.8em; }
+    table { border-collapse: collapse; width: 90%; margin: 0 auto; }
+    th, td { border: 1px solid black; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; cursor: pointer; }
+    tr:nth-child(even) { background-color: #f9f9f9; }
+    tr:nth-child(odd) { background-color: #ffffff; }
+    .info-note {
+        width: 600px;
+        background-color: #e7f3fe;
+        color: #31708f;
+        padding: 10px;
+        border: 1px solid #bce8f1;
+        border-radius: 4px;
+        margin: 20px 0;
+        font-size: 0.7em;
+    }
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const getCellValue = (tr, idx) => tr.children[idx].innerText || tr.children[idx].textContent;
+        const comparer = (idx, asc) => (a, b) => ((v1, v2) => 
+            v1 !== "" && v2 !== "" && !isNaN(v1) && !isNaN(v2) ? v1 - v2 : v1.toString().localeCompare(v2)
+        )(getCellValue(asc ? a : b, idx), getCellValue(asc ? b : a, idx));
+
+        document.querySelectorAll('th').forEach(th => th.addEventListener('click', () => {
+            const table = th.closest('table');
+            Array.from(table.querySelectorAll('tr:nth-child(n+2)'))
+                .sort(comparer(Array.from(th.parentNode.children).indexOf(th), this.asc = !this.asc))
+                .forEach(tr => table.appendChild(tr) );
+        }));
+    });
+</script>
+"@
+
+$MailboxReport | ConvertTo-Html -Property EMailAdresse, Anzeigename, Postfachtyp, Vollzugriff, SendenAls -Title "Mailbox Permissions Report" -PreContent $PreContent | Set-Content -Path $ReportPath -Encoding UTF8
+
+# HTML-Bericht im Standardbrowser öffnen
+Start-Process $ReportPath
+
+#Trennen
+Disconnect-ExchangeOnline -Confirm:$false
+
+# Abschlussmeldung
+Write-Host "Der Bericht wurde erfolgreich unter $ReportPath gespeichert und im Browser geöffnet."
