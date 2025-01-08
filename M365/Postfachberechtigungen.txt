@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------
-# Version: Postfachberechtigung_v1.1
+# Version: Postfachberechtigung_v1.0
 # github.com/frankenfrank
 # Code in die Powershell ISE kopieren und als ps1-Datei speichern
 #
@@ -29,10 +29,15 @@ if (-not (Test-Path $OutputDir)) {
 Disconnect-ExchangeOnline -Confirm:$false
 
 # Verbindung zu Exchange Online herstellen
+Write-Host "Verbinden mit den Diensten (auf offene Fenster achten)" -ForegroundColor Yellow
 Connect-ExchangeOnline
 
 # Ergebnisliste initialisieren
 $MailboxReport = @()
+
+# Wartemusik
+Write-Host ""
+Write-Host "Die Daten werden aufbereitet, das kann einen Moment dauern..." -ForegroundColor Yellow
 
 # Alle Postfächer abrufen und Berechtigungen prüfen
 Get-Mailbox -ResultSize Unlimited | Where-Object {
@@ -58,13 +63,13 @@ Get-Mailbox -ResultSize Unlimited | Where-Object {
         EMailAdresse   = $Mailbox.PrimarySmtpAddress
         Anzeigename    = $Mailbox.DisplayName
         Postfachtyp    = $MailboxType
-        Vollzugriff    = ($FullAccessPermissions | ForEach-Object { $_ }) -join "<br>"
-        SendenAls      = ($SendAsPermissions | ForEach-Object { $_ }) -join "<br>"
+        Vollzugriff    = ($FullAccessPermissions -join ", ")
+        SendenAls      = ($SendAsPermissions -join ", ")
     }
 }
 
-# Ergebnis in eine HTML-Datei exportieren
-$PreContent = @"
+# HTML-Ausgabe manuell erstellen
+$HtmlContent = @"
 <h1>Mailbox-Berechtigung</h1>
 <p>Erstelldatum: $(Get-Date -Format "dd.MM.yyyy HH:mm:ss")</p>
 <div class="info-note">
@@ -77,11 +82,36 @@ $PreContent = @"
 <tr><td>Freigegebenes Postfach</td><td>Kostenlos, Zusammenarbeit möglich</td><td>Keine persönliche Nutzung</td></tr>
 </table>
 </div>
+<table>
+    <tr>
+        <th>E-Mail-Adresse</th>
+        <th>Anzeigename</th>
+        <th>Postfachtyp</th>
+        <th>Vollzugriff</th>
+        <th>Senden als</th>
+    </tr>
+"@
+
+foreach ($Row in $MailboxReport) {
+    $HtmlContent += "<tr>"
+    $HtmlContent += "<td>$($Row.EMailAdresse)</td>"
+    $HtmlContent += "<td>$($Row.Anzeigename)</td>"
+    $HtmlContent += "<td>$($Row.Postfachtyp)</td>"
+    $HtmlContent += "<td>$($Row.Vollzugriff -replace ', ', '<br/>')</td>"
+    $HtmlContent += "<td>$($Row.SendenAls -replace ', ', '<br/>')</td>"
+    $HtmlContent += "</tr>"
+}
+
+$HtmlContent += "</table>"
+
+# Hinzufügen des CSS-Styles und des Scripts
+$HtmlContent += @"
 <style>
-    body { font-family: Trebuchet MS; font-size: 0.8em; }
-    table { border-collapse: collapse; width: 90%; margin: 0 auto; }
-    th, td { border: 1px solid black; padding: 8px; text-align: left; }
-    th { background-color: #f2f2f2; cursor: pointer; }
+    body { font-family: Trebuchet MS; font-size: 12px; }
+    table { border-collapse: collapse; width: 90%; margin: 0 auto; font-size: 12px;  }
+    th { border: 1px solid black; padding: 10px; text-align: left; }
+	td { border: 1px solid black; padding: 8px; text-align: left; }
+    th { background-color: #cccccc; cursor: pointer; }
     tr:nth-child(even) { background-color: #f9f9f9; }
     tr:nth-child(odd) { background-color: #ffffff; }
     .info-note {
@@ -92,7 +122,7 @@ $PreContent = @"
         border: 1px solid #bce8f1;
         border-radius: 4px;
         margin: 20px 0;
-        font-size: 0.7em;
+        font-size: 11px;
     }
 </style>
 <script>
@@ -112,12 +142,13 @@ $PreContent = @"
 </script>
 "@
 
-$MailboxReport | ConvertTo-Html -Property EMailAdresse, Anzeigename, Postfachtyp, Vollzugriff, SendenAls -Title "Mailbox Permissions Report" -PreContent $PreContent | Set-Content -Path $OutputFile -Encoding UTF8
+# HTML-Datei speichern
+$HtmlContent | Out-File -FilePath $OutputFile -Encoding UTF8
 
 # Datei öffnen
 Start-Process $OutputFile
 
-#Trennen
+# Trennen
 Disconnect-ExchangeOnline -Confirm:$false
 
 # Abschlussmeldung
