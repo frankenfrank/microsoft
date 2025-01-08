@@ -7,6 +7,24 @@
 # #Import-Module ExchangeOnlineManagement 
 # ----------------------------------------------------------------
 
+# Abfrage des Kundennamens am Anfang
+Write-Host ""
+Write-Host "Bitte gib den Kundennamen ein:" -ForegroundColor Yellow
+$Kundenname = Read-Host
+$Kundenname = $Kundenname -replace "\s+", "_"  # Leerzeichen durch Unterstriche ersetzen
+Write-Host ""
+Write-Host "Kundenname (bereinigt): "$Kundenname -ForegroundColor Green
+Write-Host ""
+
+# Ausgabe-Datei und Speicherort
+$OutputDir = "C:\temp\$Kundenname"
+$OutputFile = "$OutputDir\${Kundenname}_Postfachberechtigungen.htm"
+
+# Erstellen des Ausgabeordners, falls nicht vorhanden
+if (-not (Test-Path $OutputDir)) {
+    New-Item -ItemType Directory -Path $OutputDir -Force
+}
+
 # (Andere) Offene Verbindungen trennen
 Disconnect-ExchangeOnline -Confirm:$false
 
@@ -40,13 +58,12 @@ Get-Mailbox -ResultSize Unlimited | Where-Object {
         EMailAdresse   = $Mailbox.PrimarySmtpAddress
         Anzeigename    = $Mailbox.DisplayName
         Postfachtyp    = $MailboxType
-    Vollzugriff    = ($FullAccessPermissions | ForEach-Object { $_ }) -join "<br>"
-    SendenAls      = ($SendAsPermissions | ForEach-Object { $_ }) -join "<br>"
+        Vollzugriff    = ($FullAccessPermissions | ForEach-Object { $_ }) -join "<br>"
+        SendenAls      = ($SendAsPermissions | ForEach-Object { $_ }) -join "<br>"
     }
 }
 
 # Ergebnis in eine HTML-Datei exportieren
-$ReportPath = "C:\Temp\MailboxPermissionsReport.htm"
 $PreContent = @"
 <h1>Mailbox-Berechtigung</h1>
 <p>Erstelldatum: $(Get-Date -Format "dd.MM.yyyy HH:mm:ss")</p>
@@ -95,13 +112,13 @@ $PreContent = @"
 </script>
 "@
 
-$MailboxReport | ConvertTo-Html -Property EMailAdresse, Anzeigename, Postfachtyp, Vollzugriff, SendenAls -Title "Mailbox Permissions Report" -PreContent $PreContent | Set-Content -Path $ReportPath -Encoding UTF8
+$MailboxReport | ConvertTo-Html -Property EMailAdresse, Anzeigename, Postfachtyp, Vollzugriff, SendenAls -Title "Mailbox Permissions Report" -PreContent $PreContent | Set-Content -Path $OutputFile -Encoding UTF8
 
-# HTML-Bericht im Standardbrowser öffnen
-Start-Process $ReportPath
+# Datei öffnen
+Start-Process $OutputFile
 
 #Trennen
 Disconnect-ExchangeOnline -Confirm:$false
 
 # Abschlussmeldung
-Write-Host "Der Bericht wurde erfolgreich unter $ReportPath gespeichert und im Browser geöffnet."
+Write-Host "Der Bericht wurde erfolgreich unter $OutputFile gespeichert und im Browser geöffnet."
