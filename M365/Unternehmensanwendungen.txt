@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------
-# Version: Unternehmensanwendungen_v1.1
+# Version: Unternehmensanwendungen_v1.3
 # github.com/frankenfrank
 # Code in die Powershell ISE kopieren und als ps1-Datei speichern
 
@@ -12,8 +12,6 @@ clear
 # Offene Verbindungen von benötigten Diensten trennen
 Disconnect-AzureAD -ErrorAction SilentlyContinue
 Disconnect-MgGraph -ErrorAction SilentlyContinue
-
-
 
 # Abfrage des Kundennamens am Anfang
 Write-Host ""
@@ -44,8 +42,11 @@ Write-Host "Die Daten werden aufbereitet, das dauert einen Moment..."  -Foregrou
 Write-Host "Die Auswertung wird automatisch im Standardbrowser geoeffnet."  -ForegroundColor Yellow
 Write-Host ""  -ForegroundColor Yellow
 
-# Alle Service Principals abrufen
-$ServicePrincipals = Get-MgServicePrincipal -All | Select-Object Id, DisplayName
+# Alle Service Principals abrufen und nur Enterprise Applications mit Benutzerzuweisungen berücksichtigen
+$ServicePrincipals = Get-MgServicePrincipal -All | Where-Object {
+    $_.ServicePrincipalType -eq "Application" -and
+    (Get-MgServicePrincipalAppRoleAssignedTo -ServicePrincipalId $_.Id).Count -gt 0
+} | Select-Object Id, DisplayName
 
 # Liste für das Ergebnis initialisieren
 $ResultList = @()
@@ -53,11 +54,12 @@ $ResultList = @()
 # Für jeden Service Principal die zugewiesenen Benutzer abfragen
 foreach ($sp in $ServicePrincipals) {
     $AppRoleAssignments = Get-MgServicePrincipalAppRoleAssignedTo -ServicePrincipalId $sp.Id
-    
+
     if ($AppRoleAssignments.Count -eq 0) {
         # Keine Benutzer zugewiesen
         $ResultList += [PSCustomObject]@{
             Application        = $sp.DisplayName
+            ApplicationID      = $sp.Id
             AssignedPrincipals = "Keine Benutzer gefunden"
         }
     }
@@ -66,6 +68,7 @@ foreach ($sp in $ServicePrincipals) {
         $userList = ($AppRoleAssignments | ForEach-Object { $_.PrincipalDisplayName }) -join "<br />"
         $ResultList += [PSCustomObject]@{
             Application        = $sp.DisplayName
+            ApplicationID      = $sp.Id
             AssignedPrincipals = $userList
         }
     }
@@ -81,7 +84,6 @@ $HTMLContent = @"
         body { font-family: Trebuchet MS; font-size: 12px; margin-left: 30px;}
         h1 { text-align: center; }
         p { text-align: left; }
-
 
         /* Infobox angepasst: schmaler und linksbündig */
         .infobox { 
@@ -115,7 +117,7 @@ $HTMLContent = @"
         th { 
             background-color: #777777; 
             color: white; 
-			font-size: 14px;
+            font-size: 14px;
         }
 
         /* Schiebeschalter */
@@ -170,44 +172,33 @@ $HTMLContent = @"
             color: #333;
         }
     </style>
-    <script>
-        var filterActive = false;
-        
-        function toggleFilter() {
-            var rows = document.querySelectorAll("tr.app-row");
-            rows.forEach(function(row) {
-                var userCell = row.querySelector(".user-cell").innerText;
-                if (filterActive) {
-                    row.style.display = ""; // Zeilen einblenden
-                } else {
-                    if (userCell === "Keine Benutzer gefunden") {
-                        row.style.display = "none"; // Zeilen ohne Benutzer ausblenden
-                    }
-                }
-            });
-            filterActive = !filterActive;
-            document.getElementById("filter-status").innerText = filterActive ? "Aktiv (nur Anwendungen mit Benutzerzuweisung werden angezeigt)" : "Inaktiv (alle Anwendungen werden angezeigt)";
-        }
-    </script>
 </head>
 <body>
     <h1>Unternehmensanwendungen - $Kundenname</h1>
     <div class="infobox">
-        <strong>Erklärung:</strong> Diese Liste zeigt alle Programme und Dienste, die in Ihrem Unternehmen genutzt werden und bei Microsoft registriert sind. Zu jeder Anwendung sehen Sie den Namen, eine eindeutige ID und die Benutzer, die darauf Zugriff haben.<br><br>
-        <strong>Risiken:</strong> Unnötig aktive Anwendungen erhöhen das Risiko von Datenlecks, unbefugtem Zugriff und Sicherheitslücken. Regelmäßige Kontrolle hilft, diese Risiken zu minimieren und die IT-Sicherheit zu verbessern.
-    </div>
-    <p>Erstellt am: $ErstellDatum</p>
+        <strong>Erklärung:</strong> Diese Liste zeigt alle sog. Enterprise applications, die in Ihrem Unternehmen genutzt werden und bei Microsoft registriert sind. Zu jeder Anwendung sehen Sie den Namen, eine eindeutige ID und die Benutzer, die darauf Zugriff haben.<br><br>
+        <strong>Risiken:</strong> Unnötig aktive Anwendungen erhöhen das Risiko von Datenlecks, unbefugtem Zugriff und Sicherheitslücken. Drittanbieter-Apps sollten sorgfältig geprüft werden. Durch regelmäßige Kontrolle und das Entfernen unnötiger Apps lässt sich das Risiko deutlich verringern.<br><br>
+        <strong>Beispiel:</strong> Wenn es zu einem Angriff auf die Infrastruktur einer Enterprise application kommt und die App kompromittiert wird, könnte ein Angreifer theoretisch auf die geschäftlichen Daten des Unternehmens zugreifen. Das liegt daran, dass die Enterprise application dieser App im Unternehmen registriert ist und somit als vertrauenswürdig gilt, wodurch sie Zugriff auf sensible Unternehmensdaten wie E-Mails, Dokumente oder andere Ressourcen hat.<br><br>
+		<details>
+    <summary>Mögliche Maßnahmen:</summary>
+    <p>Möglichkeiten zur Registrierung einer Enterprise Application<p>
+	<p>Für den M365 Tenant bestehen folgende Möglichkeiten, für Benutzer eine Enterprise Application zu registrieren:</p>
     
-    <!-- Schiebeschalter für Filter -->
-    <label class="switch">
-        <input type="checkbox" onchange="toggleFilter()">
-        <span class="slider"></span>
-    </label>
-    <br/><span class="filter-status" id="filter-status">&nbsp;</span>
-    
+    <p><strong>Benutzerberechtigungen nicht zulassen (empfohlen):</strong>  
+    Ein Administrator wird für alle Apps benötigt. Die Anfrage zur Zustimmung kann direkt an ausgewählte Personen gesendet werden. Diese können dann die App prüfen. Nur Benutzer mit der Rolle Globaler-, Anwendungs- oder Cloud-Anwendungsadministrator können die Zustimmung erteilen.</p>
+
+    <p><strong>Benutzerberechtigungen für Apps von verifizierten Herausgebern und ausgewählte Berechtigungen zulassen:</strong>  
+    Alle Benutzer können Berechtigungen für als „geringes Risiko“ eingestufte Berechtigungen erteilen, für Apps von verifizierten Herausgebern oder in dieser Organisation registrierte Apps.</p>
+
+    <p><strong>Benutzerberechtigungen für Apps zulassen:</strong>  
+    Alle Benutzer können jeder App die Berechtigung zum Zugriff auf die Daten der Organisation erteilen.</p>
+</details>
+	</div>
+    <p>Erstellt am: $ErstellDatum Uhr</p>
     <table>
         <tr>
             <th>Anwendungsname</th>
+            <th>Anwendungs-ID</th>
             <th>Zugewiesene Benutzer</th>
         </tr>
 "@
@@ -215,10 +206,11 @@ $HTMLContent = @"
 # HTML-Erstellung vorbereiten
 foreach ($result in $ResultList) {
     $appName = $result.Application
+    $appID = $result.ApplicationID
     $userList = $result.AssignedPrincipals
 
     # HTML-Zeile hinzufügen
-    $HTMLContent += "<tr class='app-row'><td>$appName</td><td class='user-cell'>$userList</td></tr>"
+    $HTMLContent += "<tr class='app-row'><td>$appName</td><td>$appID</td><td class='user-cell'>$userList</td></tr>"
 }
 
 $HTMLContent += @"
@@ -234,7 +226,7 @@ $HTMLContent | Out-File -Encoding utf8 -FilePath $OutputFile
 Start-Process $OutputFile
 
 #Abmelden von den Diensten
-Disconnect-AzureAD -ErrorAction SilentlyContinue
-Disconnect-MgGraph -ErrorAction SilentlyContinue
+Disconnect-MgGraph
+Disconnect-AzureAD
 
 Write-Host "Die Datei wurde erfolgreich erstellt und geöffnet: $OutputFile"
