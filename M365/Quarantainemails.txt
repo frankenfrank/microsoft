@@ -100,7 +100,7 @@ $htmlContent = @"
     <h1>Quarantäne-E-Mails für $customerName</h1>
     <p><strong>Erstelldatum:</strong> $(Get-Date -Format "dd.MM.yyyy HH:mm:ss")</p>
     <div class="important-note">
-        <strong>Wichtig:</strong> Identifizieren Sie E-Mails von bekannten Absendern und mit relevanten Inhalten für Ihre Arbeit und geben Rückmeldung an Ihren Hauptansprechpartner bei Mahr EDV.
+        <strong>Wichtig:</strong> Identifizieren Sie E-Mails von bekannten Absendern und mit relevanten Inhalten für Ihre Arbeit und geben Rückmeldung an Ihren Administrator.
     </div>
     <div class="warning-note">
         <strong>Vorsicht:</strong> Ignorieren Sie E-Mails von unbekannten Absendern oder mit verdächtigen Inhalten.
