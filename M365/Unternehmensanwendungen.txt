@@ -1,3 +1,4 @@
+
 # ----------------------------------------------------------------
 # Version: Unternehmensanwendungen_v1.3
 # github.com/frankenfrank
@@ -5,13 +6,18 @@
 #
 # Voraussetzungen:
 # Install-Module -Name Microsoft.Graph -Scope CurrentUser -Force
+# Update-Module Microsoft.Graph
+# https://learn.microsoft.com/en-us/powershell/microsoftgraph/installation?view=graph-powershell-1.0
+#
+# GUI im Entra
+# https://entra.microsoft.com/ -> Anwendungen -> Unternehmensanwendungen
 # ----------------------------------------------------------------
 
 clear
 
 # Offene Verbindungen von benötigten Diensten trennen
-Disconnect-AzureAD -ErrorAction SilentlyContinue
-Disconnect-MgGraph -ErrorAction SilentlyContinue
+#Disconnect-AzureAD -ErrorAction SilentlyContinue
+#Disconnect-MgGraph -ErrorAction SilentlyContinue
 
 # Abfrage des Kundennamens am Anfang
 Write-Host ""
