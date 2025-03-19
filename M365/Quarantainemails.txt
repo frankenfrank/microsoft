@@ -1,11 +1,10 @@
 # ----------------------------------------------------------------
-# Version Quarantainemails_v2.3
-# github.com/frankenfrank
-# Code in die Powershell ISE kopieren und als ps1-datei speichern
-
 # Vorrausetzungen:
-# Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser
+# Powershell 7
+# Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser -Force
+# Update-Module ExchangeOnlineManagement
 # Install-Module Microsoft.Graph -Scope CurrentUser
+# Update-Module Microsoft.Graph
 # ----------------------------------------------------------------
 
 # Abfrage des Kundennamens am Anfang
@@ -15,8 +14,8 @@ Write-Host "Bitte gib den Kundennamen ein:" -ForegroundColor Green
 $customerName = Read-Host
 $customerName = $customerName -replace "\s+", "_"  # Leerzeichen durch Unterstriche ersetzen
 Write-Host ""
-Write-Host "Kundenname:" $customerName -ForegroundColor Green -BackgroundColor Blue
-Write-Host ""
+Write-Host "Kundenname (bereinigt):" $customerName -ForegroundColor Green -BackgroundColor Blue
+Write-Host "" -ForegroundColor White -BackgroundColor Black
 
 # Erstellen Sie den Ausgabepfad basierend auf dem Kundennamen
 $folderPath = "C:\temp\$customerName"
@@ -26,9 +25,6 @@ $filePath = [System.IO.Path]::Combine($folderPath, "${customerName}_quarantaenem
 if (-not (Test-Path -Path $folderPath)) {
     New-Item -Path $folderPath -ItemType Directory -Force
 }
-
-# (Andere) Offene Verbindungen trennen
-Disconnect-ExchangeOnline -Confirm:$false
 
 # Verbindung zu Exchange Online herstellen
 Write-Host "Verbinden mit den Diensten (auf offene Fenster achten)" -ForegroundColor Yellow
