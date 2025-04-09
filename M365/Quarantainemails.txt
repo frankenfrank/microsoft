@@ -1,4 +1,7 @@
 # ----------------------------------------------------------------
+# Version Quarantainemails_v2.3
+# github.com/frankenfrank
+#
 # Vorrausetzungen:
 # Powershell 7
 # Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser -Force
@@ -6,6 +9,7 @@
 # Install-Module Microsoft.Graph -Scope CurrentUser
 # Update-Module Microsoft.Graph
 # ----------------------------------------------------------------
+Clear-Host
 
 # Abfrage des Kundennamens am Anfang
 Write-Host ""
@@ -13,9 +17,10 @@ Write-Host "Bitte gib den Kundennamen ein:" -ForegroundColor Green
 
 $customerName = Read-Host
 $customerName = $customerName -replace "\s+", "_"  # Leerzeichen durch Unterstriche ersetzen
-Write-Host ""
-Write-Host "Kundenname (bereinigt):" $customerName -ForegroundColor Green -BackgroundColor Blue
-Write-Host "" -ForegroundColor White -BackgroundColor Black
+Write-Host " "
+Write-Host "Kundenname (bereinigt):" $customerName -ForegroundColor White -BackgroundColor Blue
+Write-Host " " -ForegroundColor White -BackgroundColor Black
+Start-Sleep -Seconds 2
 
 # Erstellen Sie den Ausgabepfad basierend auf dem Kundennamen
 $folderPath = "C:\temp\$customerName"
@@ -29,6 +34,7 @@ if (-not (Test-Path -Path $folderPath)) {
 # Verbindung zu Exchange Online herstellen
 Write-Host "Verbinden mit den Diensten (auf offene Fenster achten)" -ForegroundColor Yellow
 Connect-ExchangeOnline
+
 
 # Quarantäne-Nachrichten abrufen
 Write-Host "Quarantänemails werden abgerufen, das kann ein paar Minuten dauern..."  -ForegroundColor Yellow
@@ -137,7 +143,8 @@ Start-Process $filePath
 
 # Verbindung trennen
 Disconnect-ExchangeOnline -Confirm:$false
-Write-Host ""
-Write-Host "Fertig. Die Ergebnisse wurden gespeichert unter:" -ForegroundColor Green
-Write-Host "$filePath"
-Write-Host ""
+Write-Host " "
+Write-Host "- - - - - - - - - - - - - - - - - - - - - - - - - - -"
+Write-Host "Fertig. Die Ergebnisse wurden gespeichert unter:" -ForegroundColor White
+Write-Host "   $filePath" -ForegroundColor White
+Write-Host " "
