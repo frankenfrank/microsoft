@@ -4,10 +4,8 @@
 #
 # Vorrausetzungen:
 # Powershell 7
-# Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser -Force
-# Update-Module ExchangeOnlineManagement
+# Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser
 # Install-Module Microsoft.Graph -Scope CurrentUser
-# Update-Module Microsoft.Graph
 # ----------------------------------------------------------------
 Clear-Host
 
