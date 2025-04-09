@@ -2,11 +2,10 @@
 # ----------------------------------------------------------------
 # Version: Unternehmensanwendungen_v1.3
 # github.com/frankenfrank
-# Code in die Powershell ISE kopieren und als ps1-Datei speichern
 #
 # Voraussetzungen:
+# Powershell 7
 # Install-Module -Name Microsoft.Graph -Scope CurrentUser -Force
-# Update-Module Microsoft.Graph
 # https://learn.microsoft.com/en-us/powershell/microsoftgraph/installation?view=graph-powershell-1.0
 #
 # GUI im Entra
