@@ -3,6 +3,7 @@
 # github.com/frankenfrank
 #
 # Voraussetzungen:
+# Powershell 7
 # Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser
 # Install-Module Microsoft.Graph -Scope CurrentUser
 # ----------------------------------------------------------------
