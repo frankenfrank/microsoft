@@ -1,6 +1,6 @@
 
 # ----------------------------------------------------------------
-# Version: Unternehmensanwendungen_v1.3
+# Version: Unternehmensanwendungen_v1.4
 # github.com/frankenfrank
 #
 # Voraussetzungen:
@@ -19,7 +19,7 @@ Clear-Host
 
 # Abfrage des Kundennamens am Anfang
 Write-Host ""
-Write-Host "Bitte gib den Kundennamen ein:" -ForegroundColor Yellow
+Write-Host "Bitte gib den Kundennamen ein:" -ForegroundColor Green
 $CustomerName = Read-Host
 $CustomerName = $CustomerName -replace "\s+", "_"  # Leerzeichen durch Unterstriche ersetzen
 Write-Host " "
@@ -30,7 +30,7 @@ Start-Sleep -Seconds 2
 
 # Ausgabe-Datei und Speicherort
 $OutputDir = "C:\temp\$CustomerName"
-$OutputFile = "$OutputDir\$CustomerName-UnternehmensApps.htm"
+$FilePath = "$OutputDir\$CustomerName-UnternehmensApps.htm"
 
 # Erstellen des Ausgabeordners, falls nicht vorhanden
 if (-not (Test-Path $OutputDir)) {
@@ -40,11 +40,11 @@ if (-not (Test-Path $OutputDir)) {
 # Anmeldung bei Microsoft Graph mit GUI (für richtigen Tenant auswählen)
 # M365-Anwendungen abfragen (Administratorrechte erforderlich)
 Write-Host "Verbinden mit den Diensten (auf offene Fenster achten)" -ForegroundColor Yellow
-Connect-AzureAD
 Connect-MgGraph -Scopes "Application.Read.All", "Directory.Read.All" -NoWelcome
 
 # Meldung anzeigen, weil es eine Weile dauert
-Write-Host "Die Daten werden aufbereitet, das kann ein paar Minuten dauern..."  -ForegroundColor Yellow
+Write-Host " "
+Write-Host "Die Daten werden aufbereitet, das dauert ein paar Minuten..."  -ForegroundColor Yellow
 Write-Host "Die Auswertung wird automatisch im Standardbrowser geoeffnet."  -ForegroundColor Yellow
 Write-Host ""  -ForegroundColor Yellow
 
@@ -227,18 +227,17 @@ $HTMLContent += @"
 "@
 
 # Speichern der HTML-Datei
-$HTMLContent | Out-File -Encoding utf8 -FilePath $OutputFile
+$HTMLContent | Out-File -Encoding utf8 -FilePath $FilePath
 
 # Datei öffnen
-Start-Process $OutputFile
+Start-Process $FilePath
 
 #Abmelden von den Diensten
 Disconnect-MgGraph
-Disconnect-AzureAD
 
 Write-Host " "
 Write-Host "- - - - - - - - - - - - - - - - - - - - - - - - - - -"
 Write-Host "Fertig. Die Ergebnisse wurden gespeichert unter:" -ForegroundColor White
-Write-Host "   $filePath" -ForegroundColor White
+Write-Host "   $FilePath" -ForegroundColor White
 Write-Host " "
 
